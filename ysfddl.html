@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>同相比例运放 - 传感器调理仿真</title>
+<style>
+  /* 样式与实例一类似，此处精简，保持风格一致 */
+  * { box-sizing:border-box; margin:0; }
+  body { background:#0a1628; font-family:'Microsoft YaHei',sans-serif; display:flex; justify-content:center; padding:20px; }
+  .container { max-width:1200px; width:100%; background:linear-gradient(145deg,#0f2341,#1a365d); border-radius:24px; padding:28px; border:1px solid rgba(100,180,255,0.15); color:#c8dce6; }
+  h1 { color:#7abfff; font-size:22px; margin-bottom:6px; }
+  .sub { color:#6a8caa; font-size:13px; margin-bottom:20px; border-bottom:1px solid #1a3a5a; padding-bottom:12px; }
+  .flex { display:flex; flex-wrap:wrap; gap:20px; }
+  .panel { flex:1; min-width:320px; background:rgba(10,22,48,0.6); border-radius:16px; padding:18px; border:1px solid rgba(100,180,255,0.08); }
+  .panel h3 { color:#8ac4ff; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .circuit-svg { background:#0a0a1a; border-radius:10px; padding:10px; border:1px solid #1a3a5a; margin-bottom:14px; text-align:center; }
+  .slider-group { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+  .slider-item label { display:block; font-size:12px; color:#7899b8; margin-bottom:2px; }
+  .slider-item input[type=range] { width:100%; background:#1a3a5a; height:4px; border-radius:2px; -webkit-appearance:none; }
+  .slider-item input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#448aff; cursor:pointer; }
+  .slider-item .val { float:right; color:#80d8ff; font-weight:700; font-size:13px; }
+  .measure-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:10px 0; }
+  .measure-item { background:rgba(0,0,0,0.3); border-radius:8px; padding:6px; text-align:center; }
+  .measure-item .lbl { color:#456e8a; font-size:10px; }
+  .measure-item .num { font-family:'Courier New',monospace; font-size:18px; font-weight:700; color:#80d8ff; }
+  .measure-item .num.ok { color:#3ddc84; }
+  .measure-item .num.err { color:#ff5252; }
+  .scope { background:#000; border-radius:8px; padding:6px; height:100px; border:1px solid #1a3a5a; margin:10px 0; }
+  .scope canvas { width:100%; height:100%; display:block; }
+  .btn-group { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  .btn { padding:6px 18px; border:none; border-radius:30px; font-size:12px; font-weight:600; cursor:pointer; transition:0.2s; }
+  .btn-primary { background:#1a73e8; color:#fff; }
+  .btn-primary:hover { background:#1565c0; }
+  .btn-danger { background:#c62828; color:#fff; }
+  .btn-danger:hover { background:#b71c1c; }
+  .btn-success { background:#2e7d32; color:#fff; }
+  .btn-success:hover { background:#1b5e20; }
+  .btn-outline { background:transparent; color:#7abfff; border:1px solid #2a5a8a; }
+  .btn-outline:hover { background:rgba(26,115,232,0.1); }
+  .log { background:rgba(0,0,0,0.5); border-radius:8px; padding:8px 12px; max-height:56px; overflow-y:auto; font-family:'Courier New',monospace; font-size:11px; color:#6ab0f7; border:1px solid #1a3a5a; margin-top:8px; }
+  .log .time { color:#456e8a; margin-right:8px; }
+  .log .ok { color:#81c784; }
+  .log .err { color:#ef9a9a; }
+  .log .info { color:#80d8ff; }
+  .status { display:flex; justify-content:space-between; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:8px; margin-top:10px; font-size:13px; }
+  .status .score { color:#ffab40; font-weight:700; }
+  .step-list { margin:10px 0; }
+  .step { display:flex; align-items:center; gap:8px; padding:4px 10px; border-left:2px solid #2a4a6a; color:#7899b8; font-size:12px; transition:0.3s; }
+  .step.done { border-left-color:#3ddc84; color:#aaddff; }
+  .step .num { background:#1a3a5a; color:#7abfff; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
+  .step.done .num { background:#1b5e20; color:#81c784; }
+  .footer { margin-top:16px; text-align:center; color:#456e8a; font-size:11px; border-top:1px solid rgba(100,180,255,0.05); padding-top:14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔋 同相比例运放 · 传感器信号调理</h1>
+  <div class="sub">⚡ 新能源汽车压力/温度传感器信号放大 | 对标省赛“嵌入式系统应用”</div>
+  <div class="flex">
+    <div class="panel">
+      <h3><span style="color:#3ddc84;">●</span> 电路与参数</h3>
+      <div class="circuit-svg">
+        <svg viewBox="0 0 380 90" style="width:100%;">
+          <rect x="10" y="6" width="360" height="76" fill="none" stroke="#1a3a5a" stroke-width="1" rx="6"/>
+          <rect x="120" y="16" width="80" height="40" fill="#0a1a2a" stroke="#2a5a8a" stroke-width="1.5" rx="4"/>
+          <text x="145" y="40" fill="#7abfff" font-size="10" font-weight="700">LM358</text>
+          <line x1="120" y1="28" x2="80" y2="28" stroke="#80d8ff" stroke-width="1.5"/>
+          <text x="20" y="24" fill="#80d8ff" font-size="8">Vin+</text>
+          <circle cx="80" cy="28" r="3" fill="#80d8ff"/>
+          <line x1="120" y1="44" x2="80" y2="44" stroke="#ffab40" stroke-width="1.5"/>
+          <text x="20" y="40" fill="#ffab40" font-size="8">Vin-</text>
+          <circle cx="80" cy="44" r="3" fill="#ffab40"/>
+          <line x1="200" y1="36" x2="240" y2="36" stroke="#3ddc84" stroke-width="1.5"/>
+          <text x="245" y="32" fill="#3ddc84" font-size="8">Vout</text>
+          <circle cx="240" cy="36" r="3" fill="#3ddc84"/>
+          <text x="30" y="60" fill="#456e8a" font-size="8">R1</text>
+          <line x1="80" y1="44" x2="80" y2="60" stroke="#ffab40" stroke-width="1.5"/>
+          <line x1="80" y1="60" x2="160" y2="60" stroke="#ffab40" stroke-width="1.5"/>
+          <line x1="160" y1="60" x2="160" y2="36" stroke="#ffab40" stroke-width="1.5"/>
+          <circle cx="160" cy="60" r="3" fill="#ffab40"/>
+          <text x="150" y="72" fill="#7899b8" font-size="7">Rf</text>
+          <text x="280" y="60" fill="#456e8a" font-size="8">Av = 1 + Rf/R1</text>
+        </svg>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-item"><label>Rf <span class="val" id="rfVal">10kΩ</span></label><input type="range" id="rf" min="1" max="100" value="10"></div>
+        <div class="slider-item"><label>R1 <span class="val" id="r1Val">1kΩ</span></label><input type="range" id="r1" min="0.5" max="10" step="0.1" value="1"></div>
+        <div class="slider-item"><label>输入 Vin <span class="val" id="vinOpVal">50mV</span></label><input type="range" id="vinOp" min="10" max="200" value="50"></div>
+        <div class="slider-item"><label>Vcc <span class="val" id="vccOpVal">5V</span></label><input type="range" id="vccOp" min="3" max="12" step="0.5" value="5"></div>
+      </div>
+
+      <div class="measure-grid">
+        <div class="measure-item"><div class="lbl">Vin</div><div class="num" id="vinOpDisp">--</div></div>
+        <div class="measure-item"><div class="lbl">Vout</div><div class="num" id="voutOpDisp">--</div></div>
+        <div class="measure-item"><div class="lbl">增益 Av</div><div class="num" id="avOpDisp">--</div></div>
+      </div>
+
+      <div class="scope"><canvas id="scopeOpCanvas"></canvas></div>
+      <div style="display:flex; justify-content:space-between; font-size:10px; color:#456e8a; padding:0 4px;">
+        <span>CH1: 输入 (50mV/div)</span><span>CH2: 输出 (1V/div)</span>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnOpPower">🔌 上电</button>
+        <button class="btn btn-success" id="btnOpSignal">📡 接入信号</button>
+        <button class="btn btn-danger" id="btnOpFault">⚠️ 注入故障</button>
+        <button class="btn btn-success" id="btnOpRepair">🔧 修复</button>
+        <button class="btn btn-outline" id="btnOpReset">↻ 重置</button>
+      </div>
+
+      <div class="log" id="logOpArea"><div><span class="time">[系统]</span><span class="info"> 就绪，点击"上电"开始</span></div></div>
+    </div>
+
+    <div class="panel">
+      <h3><span style="color:#448aff;">●</span> 操作流程与诊断</h3>
+      <div class="step-list" id="stepOpList">
+        <div class="step" data-step="1"><span class="num">1</span> 上电，确认电源</div>
+        <div class="step" data-step="2"><span class="num">2</span> 接入输入信号</div>
+        <div class="step" data-step="3"><span class="num">3</span> 调节增益，观察输出</div>
+        <div class="step" data-step="4"><span class="num">4</span> 验证线性放大</div>
+        <div class="step" data-step="5"><span class="num">5</span> 故障诊断与排除 ✅</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:12px; min-height:60px; font-size:13px; color:#b0cce5;" id="conclusionOp">
+        💡 调节 Rf/R1 改变增益，注意输出不可超过 Vcc（饱和）。
+      </div>
+      <div class="status">
+        <span id="statusOpText">⏳ 等待操作</span>
+        <span class="score" id="scoreOpDisplay">得分: 0</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer">📌 快捷键: [1]上电 [2]信号 [3]故障 [4]修复 [R]重置</div>
+</div>
+<script>
+const stateOp = { powered:false, signal:false, fault:false, step:0, score:0 };
+const $ = id => document.getElementById(id);
+const vinOpDisp=$('vinOpDisp'), voutOpDisp=$('voutOpDisp'), avOpDisp=$('avOpDisp');
+const logOpArea=$('logOpArea'), conclusionOp=$('conclusionOp'), statusOpText=$('statusOpText'), scoreOpDisplay=$('scoreOpDisplay');
+const stepOpItems = document.querySelectorAll('#stepOpList .step');
+const canvasOp = $('scopeOpCanvas'), ctxOp = canvasOp.getContext('2d');
+let rf=10, r1=1, vinOp=50, vccOp=5;
+
+function resizeOpCanvas(){ canvasOp.width=canvasOp.parentElement.clientWidth-12; canvasOp.height=canvasOp.parentElement.clientHeight-12; }
+resizeOpCanvas(); window.addEventListener('resize',resizeOpCanvas);
+
+function calcOp() {
+  const av = 1 + rf / r1;
+  let vout = stateOp.signal ? av * vinOp / 1000 : 0; // vinOp in mV
+  if(vout > vccOp) vout = vccOp; // 饱和
+  if(stateOp.fault) vout = 0;
+  return { av, vout };
+}
+
+function updateOpAll() {
+  const { av, vout } = calcOp();
+  vinOpDisp.textContent = stateOp.signal ? vinOp+'mV' : '--';
+  vinOpDisp.className = 'num' + (stateOp.signal?'ok':'');
+  voutOpDisp.textContent = stateOp.signal ? vout.toFixed(2)+'V' : '--';
+  voutOpDisp.className = 'num' + (stateOp.fault?'err': (vout>0?'ok':''));
+  avOpDisp.textContent = stateOp.signal && !stateOp.fault ? av.toFixed(1) : '--';
+  avOpDisp.className = 'num' + (stateOp.signal && !stateOp.fault?'ok':'');
+
+  stepOpItems.forEach((el,idx)=>{ if(stateOp.step>idx) el.classList.add('done'); else el.classList.remove('done'); });
+  if(stateOp.step>=5 && !stateOp.fault){ statusOpText.textContent='✅ 完成！'; statusOpText.style.color='#3ddc84'; }
+  else if(stateOp.fault){ statusOpText.textContent='🔴 故障诊断中...'; statusOpText.style.color='#ff5252'; }
+  else if(stateOp.signal){ statusOpText.textContent='🟡 信号已接入'; statusOpText.style.color='#f9a825'; }
+  else if(stateOp.powered){ statusOpText.textContent='🟢 已上电'; statusOpText.style.color='#3ddc84'; }
+  else { statusOpText.textContent='⏳ 等待操作'; statusOpText.style.color='#7899b8'; }
+  scoreOpDisplay.textContent='得分: '+stateOp.score;
+
+  if(stateOp.step===0) conclusionOp.textContent='💡 调节滑块改变参数，点击"上电"开始。';
+  else if(stateOp.step===1) conclusionOp.textContent='📋 已上电。点击"接入信号"观察放大。';
+  else if(stateOp.step===2 && !stateOp.fault) conclusionOp.textContent='📡 信号已接入，观察输出波形，调节增益观察变化。';
+  else if(stateOp.step===3 && !stateOp.fault) conclusionOp.textContent='✅ 线性放大正常。可尝试调节 Rf/R1 改变增益。';
+  else if(stateOp.fault && stateOp.step<5) conclusionOp.textContent='🔴 故障：反馈电阻开路（输出为0）。点击"修复"恢复。';
+  else if(stateOp.step>=5) conclusionOp.textContent='✅ 故障排除！电路恢复正常。';
+  drawOpScope(stateOp.signal && !stateOp.fault ? vout : 0);
+}
+
+function drawOpScope(vout) {
+  const w=canvasOp.width, h=canvasOp.height;
+  ctxOp.clearRect(0,0,w,h);
+  ctxOp.strokeStyle='#0a2a4a'; ctxOp.lineWidth=0.5;
+  for(let i=0;i<8;i++){ let x=i/8*w; ctxOp.beginPath();ctxOp.moveTo(x,0);ctxOp.lineTo(x,h);ctxOp.stroke(); }
+  for(let i=0;i<6;i++){ let y=i/6*h; ctxOp.beginPath();ctxOp.moveTo(0,y);ctxOp.lineTo(w,y);ctxOp.stroke(); }
+  if(stateOp.signal && !stateOp.fault) {
+    // 输入 (小信号)
+    ctxOp.strokeStyle='#80d8ff'; ctxOp.lineWidth=1.5;
+    ctxOp.beginPath();
+    for(let x=0;x<w;x+=2){ let y=Math.sin(x*0.05)*8 + h*0.7; if(x===0)ctxOp.moveTo(x,y); else ctxOp.lineTo(x,y); }
+    ctxOp.stroke();
+    // 输出
+    ctxOp.strokeStyle='#ffab40'; ctxOp.lineWidth=1.5;
+    const amp = Math.min(vout/vccOp * h*0.3, h*0.35);
+    ctxOp.beginPath();
+    for(let x=0;x<w;x+=2){ let y=Math.sin(x*0.05)*amp + h*0.35; if(x===0)ctxOp.moveTo(x,y); else ctxOp.lineTo(x,y); }
+    ctxOp.stroke();
+    ctxOp.fillStyle='#80d8ff'; ctxOp.font='9px sans-serif'; ctxOp.fillText('Vin',4,14);
+    ctxOp.fillStyle='#ffab40'; ctxOp.fillText('Vout',4,h-6);
+    if(vout >= vccOp*0.95) { ctxOp.fillStyle='#ff5252'; ctxOp.font='11px sans-serif'; ctxOp.fillText('⚠ 饱和', w*0.7,20); }
+  } else if(stateOp.fault) {
+    ctxOp.fillStyle='#ff5252'; ctxOp.font='11px sans-serif'; ctxOp.fillText('⚠ 输出为0（反馈开路）', w*0.3,20);
+  } else {
+    ctxOp.fillStyle='#1a3a5a'; ctxOp.font='12px sans-serif'; ctxOp.fillText('等待信号...', w*0.4,h*0.5);
+  }
+}
+
+function addLogOp(msg,type) {
+  const time=new Date().toLocaleTimeString();
+  const cls=type==='ok'?'ok':type==='err'?'err':'info';
+  const div=document.createElement('div');
+  div.innerHTML=`<span class="time">[${time}]</span><span class="${cls}"> ${msg}</span>`;
+  logOpArea.appendChild(div);
+  if(logOpArea.children.length>15) logOpArea.removeChild(logOpArea.firstChild);
+  logOpArea.scrollTop=logOpArea.scrollHeight;
+}
+
+function opPowerOn(){ if(stateOp.powered){addLogOp('已上电','info');return;} stateOp.powered=true; stateOp.step=1; stateOp.score+=5; addLogOp('上电 Vcc='+vccOp+'V','ok'); updateOpAll(); }
+function opSignal(){ if(!stateOp.powered){addLogOp('请先上电','err');return;} if(stateOp.fault){addLogOp('存在故障','err');return;} if(stateOp.signal){addLogOp('信号已接入','info');return;} stateOp.signal=true; stateOp.step=2; stateOp.score+=15; addLogOp('接入 '+vinOp+'mV 信号','ok'); updateOpAll(); }
+function opInjectFault(){ if(!stateOp.signal){addLogOp('请先接入信号','err');return;} if(stateOp.fault){addLogOp('故障已存在','info');return;} stateOp.fault=true; stateOp.step=3; addLogOp('故障注入：反馈电阻开路','err'); updateOpAll(); }
+function opRepairFault(){ if(!stateOp.fault){addLogOp('无故障','info');return;} stateOp.fault=false; stateOp.step=5; stateOp.score+=25; addLogOp('修复：重新连接反馈电阻','ok'); addLogOp('故障排除！','ok'); updateOpAll(); }
+function opResetAll(){ stateOp.powered=false; stateOp.signal=false; stateOp.fault=false; stateOp.step=0; stateOp.score=0; logOpArea.innerHTML='<div><span class="time">[系统]</span><span class="info"> 已重置</span></div>'; updateOpAll(); }
+
+$('btnOpPower').onclick=opPowerOn; $('btnOpSignal').onclick=opSignal;
+$('btnOpFault').onclick=opInjectFault; $('btnOpRepair').onclick=opRepairFault; $('btnOpReset').onclick=opResetAll;
+document.addEventListener('keydown',e=>{ if(e.key==='1')opPowerOn(); else if(e.key==='2')opSignal(); else if(e.key==='3')opInjectFault(); else if(e.key==='4')opRepairFault(); else if(e.key==='r'||e.key==='R')opResetAll(); });
+
+['rf','r1','vinOp','vccOp'].forEach(id=>{
+  const el=$(id);
+  el.addEventListener('input',()=>{
+    if(id==='rf'){ rf=parseFloat(el.value); $('rfVal').textContent=rf+'kΩ'; }
+    if(id==='r1'){ r1=parseFloat(el.value); $('r1Val').textContent=r1+'kΩ'; }
+    if(id==='vinOp'){ vinOp=parseFloat(el.value); $('vinOpVal').textContent=vinOp+'mV'; }
+    if(id==='vccOp'){ vccOp=parseFloat(el.value); $('vccOpVal').textContent=vccOp+'V'; }
+    updateOpAll();
+  });
+});
+updateOpAll();
+addLogOp('💡 快捷键: [1]上电 [2]信号 [3]故障 [4]修复 [R]重置','info');
+</script>
+</body>
+</html>
