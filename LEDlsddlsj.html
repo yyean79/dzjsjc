@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LED流水灯仿真 - 可调方向/数量/亮度/多彩</title>
+    <style>
+        * { box-sizing: border-box; user-select: none; }
+        body {
+            background: linear-gradient(145deg, #1e2b3a 0%, #0f1a26 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .sim-container {
+            max-width: 1100px;
+            width: 100%;
+            background: #1e2b3a;
+            border-radius: 48px;
+            padding: 25px 30px 35px;
+            box-shadow: 0 25px 40px rgba(0,0,0,0.8), inset 0 1px 2px rgba(255,255,255,0.08);
+            border: 1px solid #3d5064;
+        }
+        h1 {
+            text-align: center;
+            font-weight: 400;
+            font-size: 26px;
+            letter-spacing: 2px;
+            color: #b6cdff;
+            margin: 0 0 6px 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .subtitle {
+            text-align: center;
+            color: #8aa1c0;
+            font-size: 14px;
+            margin-top: -4px;
+            margin-bottom: 18px;
+            border-bottom: 1px solid #3a4d62;
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+        .subtitle span {
+            background: #2a3b4c;
+            padding: 3px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            color: #c0d4f0;
+        }
+        /* LED面板 */
+        .led-panel {
+            background: #141e2b;
+            border-radius: 30px;
+            padding: 25px 15px 20px;
+            box-shadow: inset 0 6px 12px rgba(0,0,0,0.7), 0 2px 0 #3c5268;
+            margin-bottom: 20px;
+            border: 1px solid #2d4055;
+        }
+        .led-row {
+            display: flex;
+            justify-content: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            min-height: 80px;
+            align-items: center;
+        }
+        .led-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.1s;
+        }
+        .led {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #1b2a3a;
+            box-shadow: inset 0 -4px 6px rgba(0,0,0,0.6), 0 0 0 2px #0d1a26;
+            transition: all 0.08s ease;
+            position: relative;
+        }
+        .led.on {
+            box-shadow: 0 0 20px currentColor, 0 0 40px currentColor, inset 0 -4px 6px rgba(0,0,0,0.2);
+        }
+        .led-label {
+            color: #b0c8e5;
+            font-size: 12px;
+            font-weight: 500;
+            background: #1f3142;
+            padding: 1px 8px;
+            border-radius: 12px;
+            border: 1px solid #3a5068;
+        }
+        /* 信息与控制 */
+        .info-bar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            background: #141e2b;
+            border-radius: 40px;
+            padding: 10px 20px;
+            margin-top: 8px;
+            border: 1px solid #31475e;
+        }
+        .clock-indicator {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #bfd5f5;
+            font-size: 14px;
+        }
+        .pulse-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #2c4b6a;
+            transition: 0.1s;
+            box-shadow: inset 0 0 6px #000;
+        }
+        .pulse-dot.active {
+            background: #ffdd44;
+            box-shadow: 0 0 18px #ffbb00;
+        }
+        .counter-value {
+            background: #1f3145;
+            padding: 4px 18px;
+            border-radius: 40px;
+            font-weight: 600;
+            color: #ffe484;
+            font-size: 18px;
+            letter-spacing: 1px;
+            border: 1px solid #4d6888;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 20px;
+            margin-top: 18px;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 8px 14px;
+            color: #c8ddfa;
+            font-size: 14px;
+            flex-wrap: wrap;
+            background: #1a2838;
+            padding: 6px 16px 6px 14px;
+            border-radius: 40px;
+            border: 1px solid #31475e;
+        }
+        .control-group label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        input[type="range"] {
+            width: 110px;
+            height: 5px;
+            -webkit-appearance: none;
+            background: #2d4058;
+            border-radius: 6px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #ffcc44;
+            cursor: pointer;
+            box-shadow: 0 0 10px #ffaa00;
+            border: 1px solid #ffe48a;
+        }
+        .btn {
+            background: #2a405a;
+            border: none;
+            color: #eaf2ff;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.15s;
+            border: 1px solid #4d6a88;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            white-space: nowrap;
+        }
+        .btn:hover { background: #3d5b7a; transform: scale(1.02); }
+        .btn:active { transform: scale(0.96); }
+        .btn.danger { border-color: #b55a5a; color: #ffbaba; background: #4a2e2e; }
+        .btn.danger:hover { background: #6a3e3e; }
+        .btn.success { border-color: #6aa86a; color: #b8f0b8; background: #2a4a3a; }
+        .btn.success:hover { background: #3a6a4a; }
+        .btn.primary { border-color: #5a8ab5; color: #b8d8ff; background: #1e3a5a; }
+        .btn.primary:hover { background: #2e5a7a; }
+        .fault-badge {
+            display: inline-block;
+            background: #b34a4a;
+            color: #fff;
+            padding: 2px 16px;
+            border-radius: 40px;
+            font-size: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            visibility: hidden;
+            opacity: 0;
+            transition: 0.2s;
+        }
+        .fault-badge.show { visibility: visible; opacity: 1; }
+        .num-control {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .num-control button {
+            background: #2a405a;
+            border: none;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            font-size: 18px;
+            cursor: pointer;
+            border: 1px solid #4d6a88;
+            transition: 0.1s;
+        }
+        .num-control button:hover { background: #3d5b7a; }
+        .num-control span {
+            min-width: 30px;
+            text-align: center;
+            font-weight: 600;
+            color: #ffdd77;
+        }
+        .footer-note {
+            margin-top: 18px;
+            font-size: 12px;
+            color: #6b86a5;
+            text-align: center;
+            border-top: 1px solid #2d4055;
+            padding-top: 14px;
+        }
+        @media (max-width: 700px) {
+            .sim-container { padding: 15px; }
+            .led { width: 36px; height: 36px; }
+            .led-row { gap: 8px; }
+            .controls { flex-direction: column; align-items: stretch; }
+            .control-group { justify-content: space-between; }
+            input[type="range"] { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="sim-container">
+    <h1>🌈 多彩流水灯 · 电路仿真</h1>
+    <div class="subtitle">
+        <span>⏱️ NE555 时钟</span>
+        <span>🔢 可调计数器</span>
+        <span>🎨 8色LED</span>
+        <span>↔️ 方向可逆</span>
+    </div>
+
+    <!-- LED阵列 -->
+    <div class="led-panel">
+        <div class="led-row" id="ledRow"></div>
+        <div style="text-align:center; margin-top:14px;">
+            <span style="color:#8aaacf; font-size:14px;">当前输出：</span>
+            <span id="currentQ" style="color:#ffdd77; font-weight:700; font-size:20px; background:#1f3145; padding:2px 20px; border-radius:30px;">Q0</span>
+            <span style="margin-left:20px; color:#8aaacf; font-size:14px;">方向：</span>
+            <span id="directionDisplay" style="color:#88ddff; font-weight:600;">→</span>
+        </div>
+    </div>
+
+    <!-- 信息栏 -->
+    <div class="info-bar">
+        <div class="clock-indicator">
+            <span>🕒 脉冲</span>
+            <div class="pulse-dot" id="pulseDot"></div>
+            <span id="freqDisplay" style="font-size:13px; color:#aac3e5;">速度: 中</span>
+        </div>
+        <div class="counter-value">
+            <span>计数: </span><span id="counterDisplay">0</span>
+        </div>
+        <div>
+            <span class="fault-badge" id="faultBadge">⚠️ 故障</span>
+        </div>
+    </div>
+
+    <!-- 控制区 -->
+    <div class="controls">
+        <!-- 速度 -->
+        <div class="control-group">
+            <label>🐢 速度 <input type="range" id="speedSlider" min="100" max="2000" value="600" step="10"></label>
+            <span id="speedValue" style="min-width:45px;">600ms</span>
+        </div>
+
+        <!-- 方向 -->
+        <div class="control-group">
+            <button class="btn primary" id="dirBtn">↔️ 切换方向</button>
+        </div>
+
+        <!-- LED数量 -->
+        <div class="control-group">
+            <label>🔢 LED数量</label>
+            <div class="num-control">
+                <button id="decLedBtn">−</button>
+                <span id="ledCountDisplay">8</span>
+                <button id="incLedBtn">+</button>
+            </div>
+        </div>
+
+        <!-- 亮度 -->
+        <div class="control-group">
+            <label>💡 亮度 <input type="range" id="brightnessSlider" min="10" max="100" value="100"></label>
+            <span id="brightnessValue">100%</span>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="control-group">
+            <button class="btn success" id="resetBtn">🔄 复位</button>
+            <button class="btn danger" id="faultClkBtn">⛔ 时钟故障</button>
+            <button class="btn danger" id="faultRstBtn">⛔ 复位高</button>
+            <button class="btn" id="clearFaultBtn">✅ 清除故障</button>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        💡 模拟 NE555 + CD4017 流水灯 · 方向/数量/亮度/多彩全可调 · 故障模拟辅助教学
+    </div>
+</div>
+
+<script>
+    (function() {
+        // ----- 配置 -----
+        const COLOR_PALETTE = [
+            '#FF1744', // 红
+            '#FF9100', // 橙
+            '#FFEA00', // 黄
+            '#00E676', // 绿
+            '#2979FF', // 蓝
+            '#D500F9', // 紫
+            '#FF4081', // 粉
+            '#00BCD4'  // 青
+        ];
+
+        // ----- 状态 -----
+        let ledCount = 8;
+        let currentIndex = 0;
+        let direction = 1;          // 1: 左→右, -1: 右→左
+        let speedMs = 600;
+        let brightness = 100;       // 百分比
+        let isClockFault = false;
+        let isResetFault = false;
+        let intervalId = null;
+        let pulseState = false;
+
+        // DOM 引用
+        const ledRow = document.getElementById('ledRow');
+        const currentQSpan = document.getElementById('currentQ');
+        const counterDisplay = document.getElementById('counterDisplay');
+        const pulseDot = document.getElementById('pulseDot');
+        const freqDisplay = document.getElementById('freqDisplay');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        const faultBadge = document.getElementById('faultBadge');
+        const directionDisplay = document.getElementById('directionDisplay');
+        const ledCountDisplay = document.getElementById('ledCountDisplay');
+        const brightnessSlider = document.getElementById('brightnessSlider');
+        const brightnessValue = document.getElementById('brightnessValue');
+
+        const resetBtn = document.getElementById('resetBtn');
+        const faultClkBtn = document.getElementById('faultClkBtn');
+        const faultRstBtn = document.getElementById('faultRstBtn');
+        const clearFaultBtn = document.getElementById('clearFaultBtn');
+        const dirBtn = document.getElementById('dirBtn');
+        const decLedBtn = document.getElementById('decLedBtn');
+        const incLedBtn = document.getElementById('incLedBtn');
+
+        // ----- 辅助函数 -----
+        function getColor(index) {
+            return COLOR_PALETTE[index % COLOR_PALETTE.length];
+        }
+
+        // 重建LED
+        function rebuildLEDs() {
+            ledRow.innerHTML = '';
+            for (let i = 0; i < ledCount; i++) {
+                const item = document.createElement('div');
+                item.className = 'led-item';
+                const led = document.createElement('div');
+                led.className = 'led';
+                led.dataset.index = i;
+                const color = getColor(i);
+                led.style.setProperty('--led-color', color);
+                // 初始状态为灭
+                led.style.background = '#1b2a3a';
+                led.style.color = color; // 用于发光阴影
+                // 应用当前亮度
+                applyBrightness(led);
+                const label = document.createElement('span');
+                label.className = 'led-label';
+                label.textContent = `Q${i}`;
+                item.appendChild(led);
+                item.appendChild(label);
+                ledRow.appendChild(item);
+            }
+            // 更新显示
+            updateLEDs(currentIndex);
+        }
+
+        // 应用亮度到单个LED元素
+        function applyBrightness(ledElement) {
+            const b = brightness / 100;
+            ledElement.style.filter = `brightness(${b})`;
+        }
+
+        // 应用亮度到所有LED
+        function applyBrightnessToAll() {
+            document.querySelectorAll('.led').forEach(led => applyBrightness(led));
+        }
+
+        // 更新LED显示状态
+        function updateLEDs(activeIndex) {
+            const leds = document.querySelectorAll('.led');
+            leds.forEach((led, idx) => {
+                const isOn = (idx === activeIndex);
+                if (isOn) {
+                    const color = getColor(idx);
+                    led.style.background = `radial-gradient(circle at 35% 35%, #fff, ${color})`;
+                    led.classList.add('on');
+                } else {
+                    led.style.background = '#1b2a3a';
+                    led.classList.remove('on');
+                }
+                // 亮度
+                applyBrightness(led);
+            });
+        }
+
+        // 更新信息显示
+        function updateInfo(index) {
+            currentQSpan.textContent = `Q${index}`;
+            counterDisplay.textContent = index;
+            directionDisplay.textContent = direction === 1 ? '→' : '←';
+        }
+
+        // 步进函数
+        function step() {
+            if (isClockFault) {
+                // 时钟故障：不更新
+                return;
+            }
+            if (isResetFault) {
+                // 复位高电平：强制Q0
+                if (currentIndex !== 0) {
+                    currentIndex = 0;
+                    updateLEDs(0);
+                    updateInfo(0);
+                }
+                // 脉冲闪烁（模拟时钟仍在运行但复位强制）
+                pulseState = !pulseState;
+                pulseDot.classList.toggle('active', pulseState);
+                return;
+            }
+            // 正常计数
+            let newIndex = currentIndex + direction;
+            if (newIndex < 0) newIndex = ledCount - 1;
+            else if (newIndex >= ledCount) newIndex = 0;
+            currentIndex = newIndex;
+            updateLEDs(currentIndex);
+            updateInfo(currentIndex);
+            // 脉冲闪烁
+            pulseState = !pulseState;
+            pulseDot.classList.toggle('active', pulseState);
+        }
+
+        // 重启定时器
+        function restartTimer() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            if (isClockFault) return;
+            intervalId = setInterval(step, speedMs);
+        }
+
+        // 更新速度显示
+        function updateSpeedDisplay() {
+            const val = parseInt(speedSlider.value, 10);
+            speedMs = val;
+            speedValue.textContent = val + 'ms';
+            if (val < 300) freqDisplay.textContent = '速度: 快';
+            else if (val < 800) freqDisplay.textContent = '速度: 中';
+            else freqDisplay.textContent = '速度: 慢';
+            if (!isClockFault) {
+                restartTimer();
+            }
+        }
+
+        // 更新亮度显示
+        function updateBrightnessDisplay() {
+            const val = parseInt(brightnessSlider.value, 10);
+            brightness = val;
+            brightnessValue.textContent = val + '%';
+            applyBrightnessToAll();
+            // 重新应用on状态的发光效果（颜色不变，亮度改变）
+            // 直接调用updateLEDs刷新
+            updateLEDs(currentIndex);
+        }
+
+        // 重置到Q0
+        function resetToQ0() {
+            currentIndex = 0;
+            updateLEDs(0);
+            updateInfo(0);
+            if (!isClockFault) {
+                // 重置定时器（防止累积）
+                restartTimer();
+            }
+        }
+
+        // ----- 故障控制 -----
+        function setClockFault(enable) {
+            isClockFault = enable;
+            if (enable) {
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = null;
+                }
+                pulseDot.classList.remove('active');
+                faultBadge.textContent = '⚠️ 时钟故障 (无脉冲)';
+                faultBadge.classList.add('show');
+            } else {
+                faultBadge.classList.remove('show');
+                if (isResetFault) {
+                    faultBadge.textContent = '⚠️ 复位高电平';
+                    faultBadge.classList.add('show');
+                }
+                restartTimer();
+                // 产生一次脉冲显示
+                pulseState = true;
+                pulseDot.classList.add('active');
+                setTimeout(() => {
+                    pulseState = false;
+                    pulseDot.classList.remove('active');
+                }, 100);
+            }
+        }
+
+        function setResetFault(enable) {
+            isResetFault = enable;
+            if (enable) {
+                currentIndex = 0;
+                updateLEDs(0);
+                updateInfo(0);
+                if (isClockFault) {
+                    faultBadge.textContent = '⚠️ 时钟故障 + 复位高';
+                } else {
+                    faultBadge.textContent = '⚠️ 复位高电平 (仅Q0亮)';
+                }
+                faultBadge.classList.add('show');
+            } else {
+                if (!isClockFault) {
+                    faultBadge.classList.remove('show');
+                } else {
+                    faultBadge.textContent = '⚠️ 时钟故障 (无脉冲)';
+                    faultBadge.classList.add('show');
+                }
+                // 复位释放后，计数器从0开始，我们直接重置到0
+                currentIndex = 0;
+                updateLEDs(0);
+                updateInfo(0);
+                if (!isClockFault) restartTimer();
+            }
+        }
+
+        function clearAllFaults() {
+            setClockFault(false);
+            setResetFault(false);
+            faultBadge.classList.remove('show');
+            resetToQ0();
+            if (!isClockFault) restartTimer();
+        }
+
+        // ----- 改变LED数量 -----
+        function changeLedCount(newCount) {
+            if (newCount < 4) newCount = 4;
+            if (newCount > 12) newCount = 12;
+            if (newCount === ledCount) return;
+            ledCount = newCount;
+            ledCountDisplay.textContent = ledCount;
+            // 重建LED
+            rebuildLEDs();
+            // 重置索引到0
+            currentIndex = 0;
+            updateLEDs(0);
+            updateInfo(0);
+            // 重启定时器
+            if (!isClockFault) restartTimer();
+        }
+
+        // ----- 事件绑定 -----
+        speedSlider.addEventListener('input', updateSpeedDisplay);
+
+        brightnessSlider.addEventListener('input', updateBrightnessDisplay);
+
+        dirBtn.addEventListener('click', function() {
+            direction *= -1;
+            directionDisplay.textContent = direction === 1 ? '→' : '←';
+            // 方向变化不影响当前计数，但步进方向改变
+        });
+
+        resetBtn.addEventListener('click', function() {
+            // 清除所有故障并复位到Q0
+            clearAllFaults();
+        });
+
+        faultClkBtn.addEventListener('click', function() {
+            setClockFault(!isClockFault);
+        });
+
+        faultRstBtn.addEventListener('click', function() {
+            setResetFault(!isResetFault);
+        });
+
+        clearFaultBtn.addEventListener('click', function() {
+            clearAllFaults();
+        });
+
+        decLedBtn.addEventListener('click', function() {
+            changeLedCount(ledCount - 1);
+        });
+
+        incLedBtn.addEventListener('click', function() {
+            changeLedCount(ledCount + 1);
+        });
+
+        // ----- 初始化 -----
+        function init() {
+            // 设置初始LED
+            ledCount = 8;
+            ledCountDisplay.textContent = ledCount;
+            rebuildLEDs();
+            currentIndex = 0;
+            updateLEDs(0);
+            updateInfo(0);
+            direction = 1;
+            directionDisplay.textContent = '→';
+            // 速度
+            speedSlider.value = 600;
+            updateSpeedDisplay();
+            // 亮度
+            brightnessSlider.value = 100;
+            updateBrightnessDisplay();
+            // 故障
+            faultBadge.classList.remove('show');
+            isClockFault = false;
+            isResetFault = false;
+            // 启动定时器
+            restartTimer();
+            // 脉冲初始状态
+            pulseDot.classList.remove('active');
+        }
+
+        init();
+    })();
+</script>
+</body>
+</html>
