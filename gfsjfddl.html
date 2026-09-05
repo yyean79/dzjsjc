@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>共发射极放大电路 - 交互仿真</title>
+<style>
+  * { box-sizing:border-box; margin:0; }
+  body { background:#0a1628; font-family:'Microsoft YaHei',sans-serif; display:flex; justify-content:center; padding:20px; }
+  .container { max-width:1200px; width:100%; background:linear-gradient(145deg,#0f2341,#1a365d); border-radius:24px; padding:28px; border:1px solid rgba(100,180,255,0.15); color:#c8dce6; }
+  h1 { color:#7abfff; font-size:22px; margin-bottom:6px; }
+  .sub { color:#6a8caa; font-size:13px; margin-bottom:20px; border-bottom:1px solid #1a3a5a; padding-bottom:12px; }
+  .flex { display:flex; flex-wrap:wrap; gap:20px; }
+  .panel { flex:1; min-width:320px; background:rgba(10,22,48,0.6); border-radius:16px; padding:18px; border:1px solid rgba(100,180,255,0.08); }
+  .panel h3 { color:#8ac4ff; font-size:14px; margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+  .circuit-svg { background:#0a0a1a; border-radius:10px; padding:10px; border:1px solid #1a3a5a; margin-bottom:14px; text-align:center; }
+  .slider-group { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+  .slider-item label { display:block; font-size:12px; color:#7899b8; margin-bottom:2px; }
+  .slider-item input[type=range] { width:100%; background:#1a3a5a; height:4px; border-radius:2px; -webkit-appearance:none; }
+  .slider-item input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:14px; height:14px; border-radius:50%; background:#448aff; cursor:pointer; }
+  .slider-item .val { float:right; color:#80d8ff; font-weight:700; font-size:13px; }
+  .measure-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:6px; margin:10px 0; }
+  .measure-item { background:rgba(0,0,0,0.3); border-radius:8px; padding:6px; text-align:center; }
+  .measure-item .lbl { color:#456e8a; font-size:10px; }
+  .measure-item .num { font-family:'Courier New',monospace; font-size:18px; font-weight:700; color:#80d8ff; }
+  .measure-item .num.ok { color:#3ddc84; }
+  .measure-item .num.err { color:#ff5252; }
+  .scope { background:#000; border-radius:8px; padding:6px; height:100px; border:1px solid #1a3a5a; margin:10px 0; }
+  .scope canvas { width:100%; height:100%; display:block; }
+  .btn-group { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0; }
+  .btn { padding:6px 18px; border:none; border-radius:30px; font-size:12px; font-weight:600; cursor:pointer; transition:0.2s; }
+  .btn-primary { background:#1a73e8; color:#fff; }
+  .btn-primary:hover { background:#1565c0; }
+  .btn-danger { background:#c62828; color:#fff; }
+  .btn-danger:hover { background:#b71c1c; }
+  .btn-success { background:#2e7d32; color:#fff; }
+  .btn-success:hover { background:#1b5e20; }
+  .btn-outline { background:transparent; color:#7abfff; border:1px solid #2a5a8a; }
+  .btn-outline:hover { background:rgba(26,115,232,0.1); }
+  .log { background:rgba(0,0,0,0.5); border-radius:8px; padding:8px 12px; max-height:56px; overflow-y:auto; font-family:'Courier New',monospace; font-size:11px; color:#6ab0f7; border:1px solid #1a3a5a; margin-top:8px; }
+  .log .time { color:#456e8a; margin-right:8px; }
+  .log .ok { color:#81c784; }
+  .log .err { color:#ef9a9a; }
+  .log .info { color:#80d8ff; }
+  .status { display:flex; justify-content:space-between; padding:8px 12px; background:rgba(0,0,0,0.3); border-radius:8px; margin-top:10px; font-size:13px; }
+  .status .score { color:#ffab40; font-weight:700; }
+  .step-list { margin:10px 0; }
+  .step { display:flex; align-items:center; gap:8px; padding:4px 10px; border-left:2px solid #2a4a6a; color:#7899b8; font-size:12px; transition:0.3s; }
+  .step.done { border-left-color:#3ddc84; color:#aaddff; }
+  .step .num { background:#1a3a5a; color:#7abfff; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
+  .step.done .num { background:#1b5e20; color:#81c784; }
+  .footer { margin-top:16px; text-align:center; color:#456e8a; font-size:11px; border-top:1px solid rgba(100,180,255,0.05); padding-top:14px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔊 共发射极放大电路 · 超声波信号放大</h1>
+  <div class="sub">⚡ 智能网联汽车技术 · 传感器信号调理 | 对标省赛“智能传感器检测标定”</div>
+  <div class="flex">
+    <div class="panel">
+      <h3><span style="color:#3ddc84;">●</span> 电路与参数</h3>
+      <div class="circuit-svg">
+        <svg viewBox="0 0 380 100" style="width:100%;">
+          <rect x="10" y="8" width="360" height="84" fill="none" stroke="#1a3a5a" stroke-width="1" rx="6"/>
+          <text x="20" y="26" fill="#456e8a" font-size="9">Vcc = 12V</text>
+          <line x1="20" y1="30" x2="20" y2="80" stroke="#448aff" stroke-width="1.5"/>
+          <line x1="20" y1="30" x2="60" y2="30" stroke="#448aff" stroke-width="1.5"/>
+          <circle cx="60" cy="30" r="3" fill="#ffab40"/><text x="48" y="22" fill="#7899b8" font-size="7">Rb1</text>
+          <line x1="60" y1="30" x2="100" y2="30" stroke="#448aff" stroke-width="1.5"/>
+          <line x1="100" y1="30" x2="100" y2="60" stroke="#448aff" stroke-width="1.5"/>
+          <circle cx="100" cy="60" r="3" fill="#ffab40"/><text x="88" y="72" fill="#7899b8" font-size="7">Rb2</text>
+          <line x1="100" y1="60" x2="100" y2="80" stroke="#448aff" stroke-width="1.5"/>
+          <line x1="100" y1="80" x2="20" y2="80" stroke="#448aff" stroke-width="1.5"/>
+          <text x="120" y="24" fill="#7899b8" font-size="7">Rc</text>
+          <line x1="140" y1="30" x2="140" y2="60" stroke="#448aff" stroke-width="1.5"/>
+          <circle cx="140" cy="60" r="3" fill="#ffab40"/><text x="128" y="72" fill="#7899b8" font-size="7">Re</text>
+          <line x1="140" y1="60" x2="140" y2="80" stroke="#448aff" stroke-width="1.5"/>
+          <polygon points="180,40 200,28 200,52" fill="#3ddc84"/>
+          <text x="205" y="44" fill="#80d8ff" font-size="8">Q1 (2N3904)</text>
+          <line x1="180" y1="40" x2="140" y2="40" stroke="#448aff" stroke-width="1.5"/>
+          <line x1="200" y1="40" x2="240" y2="40" stroke="#448aff" stroke-width="1.5"/>
+          <text x="245" y="36" fill="#ffab40" font-size="8">Vout</text>
+          <text x="20" y="96" fill="#456e8a" font-size="8">Vin (40kHz, 5mV)</text>
+          <line x1="20" y1="88" x2="160" y2="88" stroke="#ffab40" stroke-width="1" stroke-dasharray="4,4"/>
+        </svg>
+      </div>
+
+      <div class="slider-group">
+        <div class="slider-item"><label>Rb1 <span class="val" id="rb1Val">47kΩ</span></label><input type="range" id="rb1" min="10" max="100" value="47"></div>
+        <div class="slider-item"><label>Rc <span class="val" id="rcVal">3kΩ</span></label><input type="range" id="rc" min="1" max="10" value="3"></div>
+        <div class="slider-item"><label>Re <span class="val" id="reVal">1kΩ</span></label><input type="range" id="re" min="0.5" max="3" step="0.1" value="1"></div>
+        <div class="slider-item"><label>输入幅值 <span class="val" id="vinVal">5mV</span></label><input type="range" id="vinAmp" min="1" max="20" value="5"></div>
+      </div>
+
+      <div class="measure-grid">
+        <div class="measure-item"><div class="lbl">Vb</div><div class="num" id="vbDisp">--</div></div>
+        <div class="measure-item"><div class="lbl">Vc</div><div class="num" id="vcDisp">--</div></div>
+        <div class="measure-item"><div class="lbl">Ve</div><div class="num" id="veDisp">--</div></div>
+      </div>
+      <div class="measure-grid">
+        <div class="measure-item"><div class="lbl">Vin</div><div class="num" id="vinDisp">--</div></div>
+        <div class="measure-item"><div class="lbl">Vout</div><div class="num" id="voutDisp">--</div></div>
+        <div class="measure-item"><div class="lbl">Av</div><div class="num" id="avDisp">--</div></div>
+      </div>
+
+      <div class="scope"><canvas id="scopeCanvas"></canvas></div>
+      <div style="display:flex; justify-content:space-between; font-size:10px; color:#456e8a; padding:0 4px;">
+        <span>CH1: 输入 (2mV/div)</span><span>CH2: 输出 (100mV/div)</span>
+      </div>
+
+      <div class="btn-group">
+        <button class="btn btn-primary" id="btnPower">🔌 上电</button>
+        <button class="btn btn-primary" id="btnMeasure">📏 测静态点</button>
+        <button class="btn btn-success" id="btnSignal">📡 接入信号</button>
+        <button class="btn btn-danger" id="btnFault">⚠️ 注入故障</button>
+        <button class="btn btn-success" id="btnRepair">🔧 修复</button>
+        <button class="btn btn-outline" id="btnReset">↻ 重置</button>
+      </div>
+
+      <div class="log" id="logArea"><div><span class="time">[系统]</span><span class="info"> 就绪，点击"上电"开始</span></div></div>
+    </div>
+
+    <div class="panel">
+      <h3><span style="color:#448aff;">●</span> 操作流程与诊断</h3>
+      <div class="step-list" id="stepList">
+        <div class="step" data-step="1"><span class="num">1</span> 上电，确认电源正常</div>
+        <div class="step" data-step="2"><span class="num">2</span> 测量静态工作点</div>
+        <div class="step" data-step="3"><span class="num">3</span> 接入40kHz信号</div>
+        <div class="step" data-step="4"><span class="num">4</span> 观察波形，计算Av</div>
+        <div class="step" data-step="5"><span class="num">5</span> 故障诊断与排除 ✅</div>
+      </div>
+      <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:12px; min-height:60px; font-size:13px; color:#b0cce5;" id="conclusion">
+        💡 调节上方滑块改变电路参数，观察静态工作点和波形变化。
+      </div>
+      <div class="status">
+        <span id="statusText">⏳ 等待操作</span>
+        <span class="score" id="scoreDisplay">得分: 0</span>
+      </div>
+    </div>
+  </div>
+  <div class="footer">📌 快捷键: [1]上电 [2]测静态 [3]信号 [4]故障 [5]修复 [R]重置</div>
+</div>
+<script>
+// ===== 仿真引擎 =====
+const state = { powered:false, measured:false, signal:false, fault:false, repaired:false, step:0, score:0 };
+const $ = id => document.getElementById(id);
+const vbDisp=$('vbDisp'), vcDisp=$('vcDisp'), veDisp=$('veDisp'), vinDisp=$('vinDisp'), voutDisp=$('voutDisp'), avDisp=$('avDisp');
+const logArea=$('logArea'), conclusion=$('conclusion'), statusText=$('statusText'), scoreDisplay=$('scoreDisplay');
+const stepItems = document.querySelectorAll('.step');
+const canvas = $('scopeCanvas'), ctx = canvas.getContext('2d');
+let rb1=47, rc=3, re=1, vinAmp=5;
+
+function resizeCanvas(){ canvas.width=canvas.parentElement.clientWidth-12; canvas.height=canvas.parentElement.clientHeight-12; }
+resizeCanvas(); window.addEventListener('resize',resizeCanvas);
+
+function calcCircuit() {
+  // 简化模型：分压偏置
+  const vcc=12;
+  const rb2=10; // 固定10k
+  const vb = vcc * rb2 / (rb1 + rb2);
+  const ve = vb - 0.7;
+  const ic = ve / re;
+  const vc = vcc - ic * rc;
+  // 放大倍数近似 -β*Rc/rbe (简化取β=100, rbe≈1k)
+  const rbe = 1.0;
+  const beta = 100;
+  const av = -beta * rc / rbe;
+  const vout = state.signal && !state.fault ? Math.abs(av) * vinAmp : 0;
+  return { vb, ve, vc, ic, av, vout };
+}
+
+function updateAll() {
+  const { vb, ve, vc, av, vout } = calcCircuit();
+  const fault = state.fault;
+  vbDisp.textContent = fault ? '--' : vb.toFixed(2)+'V';
+  vbDisp.className = 'num' + (fault?' err':' ok');
+  vcDisp.textContent = fault ? '--' : vc.toFixed(2)+'V';
+  vcDisp.className = 'num' + (fault?' err':' ok');
+  veDisp.textContent = fault ? '--' : ve.toFixed(2)+'V';
+  veDisp.className = 'num' + (fault?' err':' ok');
+  vinDisp.textContent = state.signal ? vinAmp+'mV' : '--';
+  const voutValid = state.signal && !fault;
+  voutDisp.textContent = voutValid ? vout.toFixed(0)+'mV' : (fault?'失真':'--');
+  voutDisp.className = 'num' + (fault?' err': (voutValid?'ok':''));
+  avDisp.textContent = voutValid ? Math.abs(av).toFixed(0) : (fault?'--':'');
+  avDisp.className = 'num' + (voutValid?'ok':'');
+
+  // 步骤
+  stepItems.forEach((el,idx)=>{ if(state.step>idx) el.classList.add('done'); else el.classList.remove('done'); });
+  // 状态
+  if(state.step>=5 && !state.fault){ statusText.textContent='✅ 完成！'; statusText.style.color='#3ddc84'; }
+  else if(state.fault){ statusText.textContent='🔴 故障诊断中...'; statusText.style.color='#ff5252'; }
+  else if(state.signal){ statusText.textContent='🟡 信号已接入'; statusText.style.color='#f9a825'; }
+  else if(state.powered){ statusText.textContent='🟢 已上电'; statusText.style.color='#3ddc84'; }
+  else { statusText.textContent='⏳ 等待操作'; statusText.style.color='#7899b8'; }
+  scoreDisplay.textContent='得分: '+state.score;
+  // 结论
+  if(state.step===0) conclusion.textContent='💡 调节滑块改变参数，点击"上电"开始实验。';
+  else if(state.step===1) conclusion.textContent='📋 已上电。点击"测静态点"测量Vb、Vc、Ve。';
+  else if(state.step===2) conclusion.textContent='📏 静态工作点正常。点击"接入信号"观察放大效果。';
+  else if(state.step===3 && !state.fault) conclusion.textContent='📡 信号已接入，观察示波器波形，计算Av。';
+  else if(state.step===4 && !state.fault) conclusion.textContent='✅ 放大倍数 Av='+Math.abs(av).toFixed(0)+'。可点击"注入故障"进行诊断训练。';
+  else if(state.fault && state.step<5) conclusion.textContent='🔴 故障：截止失真（Vc≈Vcc）。请检查Rb1过大或Re过大，点击"修复"恢复。';
+  else if(state.step>=5) conclusion.textContent='✅ 故障排除！电路恢复正常。';
+  drawScope(voutValid?vout:0);
+}
+
+function drawScope(vout) {
+  const w=canvas.width, h=canvas.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.strokeStyle='#0a2a4a'; ctx.lineWidth=0.5;
+  for(let i=0;i<8;i++){ let x=i/8*w; ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke(); }
+  for(let i=0;i<6;i++){ let y=i/6*h; ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke(); }
+  if(state.signal && !state.fault) {
+    // 输入
+    ctx.strokeStyle='#80d8ff'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(let x=0;x<w;x+=2){ let y=Math.sin(x*0.06)*6 + h*0.7; if(x===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+    // 输出
+    ctx.strokeStyle='#ffab40'; ctx.lineWidth=1.5;
+    const amp = Math.min(vout/10, h*0.35);
+    ctx.beginPath();
+    for(let x=0;x<w;x+=2){ let y=Math.sin(x*0.06)*amp + h*0.35; if(x===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+    ctx.fillStyle='#80d8ff'; ctx.font='9px sans-serif'; ctx.fillText('Vin',4,14);
+    ctx.fillStyle='#ffab40'; ctx.fillText('Vout',4,h-6);
+    if(vout>3000){ ctx.fillStyle='#3ddc84'; ctx.font='11px sans-serif'; ctx.fillText('✅ 放大达标', w*0.7,20); }
+  } else if(state.fault) {
+    ctx.strokeStyle='#ff5252'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(let x=0;x<w;x+=2){ let y=Math.sin(x*0.06)*6 + h*0.7; if(x===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+    ctx.strokeStyle='#ff5252'; ctx.lineWidth=1.5;
+    ctx.beginPath();
+    for(let x=0;x<w;x+=2){ let y=Math.sin(x*0.06)*50 + h*0.35; if(x===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+    ctx.fillStyle='#ff5252'; ctx.font='11px sans-serif'; ctx.fillText('⚠ 输出削顶（截止失真）', w*0.3,20);
+  } else {
+    ctx.fillStyle='#1a3a5a'; ctx.font='12px sans-serif'; ctx.fillText('等待信号...', w*0.4,h*0.5);
+  }
+}
+
+function addLog(msg,type) {
+  const time=new Date().toLocaleTimeString();
+  const cls=type==='ok'?'ok':type==='err'?'err':'info';
+  const div=document.createElement('div');
+  div.innerHTML=`<span class="time">[${time}]</span><span class="${cls}"> ${msg}</span>`;
+  logArea.appendChild(div);
+  if(logArea.children.length>15) logArea.removeChild(logArea.firstChild);
+  logArea.scrollTop=logArea.scrollHeight;
+}
+
+// 操作函数
+function powerOn(){ if(state.powered){addLog('已上电','info');return;} state.powered=true; state.step=1; state.score+=5; addLog('上电成功 Vcc=12V','ok'); updateAll(); }
+function measureStatic(){ if(!state.powered){addLog('请先上电','err');return;} if(state.fault){addLog('存在故障，请先修复','err');return;} if(state.measured){addLog('已测量','info');return;} state.measured=true; state.step=2; state.score+=15; addLog('Vb=2.1V, Vc=6.8V, Ve=1.4V','ok'); updateAll(); }
+function signalOn(){ if(!state.measured){addLog('请先测静态点','err');return;} if(state.fault){addLog('存在故障','err');return;} if(state.signal){addLog('信号已接入','info');return;} state.signal=true; state.step=3; state.score+=20; addLog('接入40kHz, '+vinAmp+'mV 信号','ok'); updateAll(); }
+function injectFault(){ if(!state.signal){addLog('请先接入信号','err');return;} if(state.fault){addLog('故障已存在','info');return;} state.fault=true; state.step=4; addLog('故障注入：截止失真 (Rb1过大)','err'); updateAll(); }
+function repairFault(){ if(!state.fault){addLog('无故障','info');return;} state.fault=false; state.step=5; state.score+=25; addLog('修复：调整Rb1=22kΩ，恢复静态点','ok'); addLog('故障排除！','ok'); updateAll(); }
+function resetAll(){ state.powered=false; state.measured=false; state.signal=false; state.fault=false; state.step=0; state.score=0; logArea.innerHTML='<div><span class="time">[系统]</span><span class="info"> 已重置</span></div>'; updateAll(); }
+
+// 绑定事件
+$('btnPower').onclick=powerOn; $('btnMeasure').onclick=measureStatic; $('btnSignal').onclick=signalOn;
+$('btnFault').onclick=injectFault; $('btnRepair').onclick=repairFault; $('btnReset').onclick=resetAll;
+document.addEventListener('keydown',e=>{ if(e.key==='1')powerOn(); else if(e.key==='2')measureStatic(); else if(e.key==='3')signalOn(); else if(e.key==='4')injectFault(); else if(e.key==='5')repairFault(); else if(e.key==='r'||e.key==='R')resetAll(); });
+
+// 滑块
+['rb1','rc','re','vinAmp'].forEach(id=>{
+  const el=$(id);
+  el.addEventListener('input',()=>{
+    if(id==='rb1'){ rb1=parseFloat(el.value); $('rb1Val').textContent=rb1+'kΩ'; }
+    if(id==='rc'){ rc=parseFloat(el.value); $('rcVal').textContent=rc+'kΩ'; }
+    if(id==='re'){ re=parseFloat(el.value); $('reVal').textContent=re+'kΩ'; }
+    if(id==='vinAmp'){ vinAmp=parseFloat(el.value); $('vinVal').textContent=vinAmp+'mV'; }
+    updateAll();
+  });
+});
+updateAll();
+addLog('💡 快捷键: [1]上电 [2]测量 [3]信号 [4]故障 [5]修复 [R]重置','info');
+</script>
+</body>
+</html>
