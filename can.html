@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAN总线数据读取与故障诊断 - 仿真动画</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #0a1628;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        .container {
+            background: linear-gradient(145deg, #0f2341, #1a365d);
+            border-radius: 24px;
+            padding: 30px 35px 35px 35px;
+            max-width: 1100px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.8), inset 0 1px 0 rgba(255,255,255,0.05);
+            border: 1px solid rgba(100, 180, 255, 0.15);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 22px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header h1 {
+            color: #7abfff;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-shadow: 0 0 20px rgba(60, 160, 255, 0.25);
+        }
+        .header .badge {
+            background: rgba(60, 180, 255, 0.15);
+            color: #6ab0f7;
+            padding: 5px 16px;
+            border-radius: 30px;
+            font-size: 13px;
+            border: 1px solid rgba(60, 180, 255, 0.2);
+        }
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 780px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+        .panel {
+            background: rgba(10, 22, 48, 0.7);
+            border-radius: 16px;
+            padding: 18px 20px 20px 20px;
+            border: 1px solid rgba(100, 180, 255, 0.1);
+            backdrop-filter: blur(5px);
+        }
+        .panel-title {
+            color: #8ac4ff;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .panel-title .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot.green { background: #3ddc84; box-shadow: 0 0 10px #3ddc8470; }
+        .dot.yellow { background: #f9a825; box-shadow: 0 0 10px #f9a82570; }
+        .dot.red { background: #ff5252; box-shadow: 0 0 10px #ff525270; }
+        .dot.blue { background: #448aff; box-shadow: 0 0 10px #448aff70; }
+
+        /* CAN报文列表 */
+        .can-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .can-item {
+            background: rgba(20, 50, 90, 0.5);
+            border-radius: 10px;
+            padding: 10px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 3px solid #448aff;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .can-item:hover { background: rgba(30, 70, 130, 0.6); }
+        .can-item.active {
+            background: rgba(40, 100, 200, 0.3);
+            border-left-color: #f9a825;
+            box-shadow: 0 0 20px rgba(60, 160, 255, 0.1);
+        }
+        .can-item .id { color: #ffab40; font-weight: 700; }
+        .can-item .data { color: #80d8ff; letter-spacing: 1px; }
+        .can-item .status {
+            font-size: 11px;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        .status.normal { background: #1b5e20; color: #81c784; }
+        .status.error { background: #b71c1c; color: #ef9a9a; }
+        .status.parsed { background: #e65100; color: #ffcc80; }
+
+        /* 仪表盘 */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .gauge {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 12px;
+            padding: 12px;
+            text-align: center;
+            border: 1px solid rgba(100, 180, 255, 0.08);
+        }
+        .gauge .label { color: #7899b8; font-size: 11px; margin-bottom: 4px; }
+        .gauge .value {
+            font-family: 'Courier New', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            color: #7abfff;
+        }
+        .gauge .value.error { color: #ff5252; animation: blink 0.8s infinite; }
+        .gauge .value.normal { color: #3ddc84; }
+        .gauge .unit { color: #7899b8; font-size: 12px; margin-left: 2px; }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* 示波器模拟 */
+        .scope {
+            background: #000;
+            border-radius: 10px;
+            padding: 12px;
+            margin-top: 8px;
+            height: 80px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #1a3a5a;
+        }
+        .scope canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 故障诊断区 */
+        .diagnosis {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .diag-step {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(0,0,0,0.3);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #b0cce5;
+            border-left: 2px solid #2a4a6a;
+            transition: all 0.4s;
+        }
+        .diag-step.done { border-left-color: #3ddc84; color: #aaddff; }
+        .diag-step .num {
+            background: #1a3a5a;
+            color: #7abfff;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        .diag-step.done .num { background: #1b5e20; color: #81c784; }
+
+        /* 按钮 */
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 16px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            padding: 8px 22px;
+            border: none;
+            border-radius: 30px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #1a73e8, #0d47a1);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(26, 115, 232, 0.3);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 25px rgba(26, 115, 232, 0.4); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .btn-success {
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
+        }
+        .btn-success:hover { transform: translateY(-2px); }
+        .btn-warning {
+            background: linear-gradient(135deg, #e65100, #bf360c);
+            color: #fff;
+        }
+        .btn-warning:hover { transform: translateY(-2px); }
+        .btn-outline {
+            background: transparent;
+            color: #7abfff;
+            border: 1px solid #2a5a8a;
+        }
+        .btn-outline:hover { background: rgba(26, 115, 232, 0.1); }
+
+        .status-bar {
+            margin-top: 16px;
+            padding: 10px 16px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 10px;
+            color: #80b8e0;
+            font-size: 13px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            border: 1px solid rgba(100, 180, 255, 0.05);
+        }
+        .status-bar .highlight { color: #ffab40; font-weight: 600; }
+
+        .footer-note {
+            margin-top: 18px;
+            text-align: center;
+            color: #456e8a;
+            font-size: 12px;
+            border-top: 1px solid rgba(100, 180, 255, 0.05);
+            padding-top: 16px;
+        }
+
+        .log-area {
+            background: rgba(0,0,0,0.5);
+            border-radius: 8px;
+            padding: 10px 14px;
+            margin-top: 10px;
+            max-height: 60px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #6ab0f7;
+            border: 1px solid #1a3a5a;
+        }
+        .log-area .log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        .log-area .log-entry:last-child { border-bottom: none; }
+        .log-area .time { color: #456e8a; margin-right: 10px; }
+        .log-area .ok { color: #81c784; }
+        .log-area .err { color: #ef9a9a; }
+        .log-area .info { color: #80d8ff; }
+    </style>
+</head>
+<body>
+<div class="container" id="app">
+    <div class="header">
+        <h1>🚗 CAN总线数据读取 · 故障诊断仿真</h1>
+        <span class="badge">⚡ 智能网联汽车技术赛项 · 线控底盘调测</span>
+    </div>
+
+    <div class="main-grid">
+        <!-- 左列：CAN报文 + 解析 -->
+        <div class="panel">
+            <div class="panel-title"><span class="dot green"></span> CAN报文数据流</div>
+            <div class="can-list" id="canList">
+                <div class="can-item" data-id="0x18A" data-raw="FF DA 00 00 00 00 00 00">
+                    <span class="id">0x18A</span>
+                    <span class="data">FF DA 00 00 00 00 00 00</span>
+                    <span class="status normal">● 转角</span>
+                </div>
+                <div class="can-item" data-id="0x1CC" data-raw="40 00 40 00 0C 83 41 52">
+                    <span class="id">0x1CC</span>
+                    <span class="data">40 00 40 00 0C 83 41 52</span>
+                    <span class="status normal">● 车速</span>
+                </div>
+                <div class="can-item" data-id="0x16B" data-raw="00 80 00 00 01 00 04 80">
+                    <span class="id">0x16B</span>
+                    <span class="data">00 80 00 00 01 00 04 80</span>
+                    <span class="status normal">● 档位</span>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top:16px;"><span class="dot yellow"></span> 报文解析</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:10px;">
+                    <div style="color:#7899b8; font-size:11px;">方向盘转角</div>
+                    <div style="font-family:'Courier New',monospace; font-size:20px; font-weight:700; color:#ffab40;" id="angleDisplay">--</div>
+                    <div style="color:#456e8a; font-size:11px;">ID: 0x18A · 精度 0.1°</div>
+                </div>
+                <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:10px;">
+                    <div style="color:#7899b8; font-size:11px;">车速</div>
+                    <div style="font-family:'Courier New',monospace; font-size:20px; font-weight:700; color:#80d8ff;" id="speedDisplay">--</div>
+                    <div style="color:#456e8a; font-size:11px;">ID: 0x1CC · 精度 0.05 km/h</div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="btnRead">📡 读取CAN数据</button>
+                <button class="btn btn-success" id="btnParse">🔍 解析报文</button>
+                <button class="btn btn-warning" id="btnFault">⚠️ 注入故障</button>
+                <button class="btn btn-outline" id="btnReset">↻ 重置</button>
+            </div>
+
+            <div class="log-area" id="logArea">
+                <div class="log-entry"><span class="time">[系统]</span> <span class="info">就绪，等待读取CAN数据...</span></div>
+            </div>
+        </div>
+
+        <!-- 右列：仪表 + 诊断 -->
+        <div class="panel">
+            <div class="panel-title"><span class="dot blue"></span> 车辆状态</div>
+            <div class="dashboard">
+                <div class="gauge">
+                    <div class="label">车速</div>
+                    <div><span class="value error" id="speedGauge">--</span><span class="unit">km/h</span></div>
+                </div>
+                <div class="gauge">
+                    <div class="label">方向盘转角</div>
+                    <div><span class="value error" id="angleGauge">--</span><span class="unit">°</span></div>
+                </div>
+                <div class="gauge" style="grid-column: span 2;">
+                    <div class="label">CAN总线状态</div>
+                    <div style="font-size:14px; font-weight:600;" id="canStatus">🔴 未连接</div>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top:4px;"><span class="dot red"></span> 故障诊断流程</div>
+            <div class="diagnosis" id="diagList">
+                <div class="diag-step" data-step="1"><span class="num">1</span> 确认故障现象（仪表盘无显示）</div>
+                <div class="diag-step" data-step="2"><span class="num">2</span> 读取CAN报文数据</div>
+                <div class="diag-step" data-step="3"><span class="num">3</span> 解析转角/车速报文</div>
+                <div class="diag-step" data-step="4"><span class="num">4</span> 示波器测量CAN_H/CAN_L</div>
+                <div class="diag-step" data-step="5"><span class="num">5</span> 定位故障：CAN_H与CAN_L短接</div>
+                <div class="diag-step" data-step="6"><span class="num">6</span> 排除故障 · 验证恢复 ✅</div>
+            </div>
+
+            <div class="status-bar">
+                <span id="statusText">💡 点击 "读取CAN数据" 开始仿真</span>
+                <span id="scoreDisplay" style="color:#ffab40; font-weight:700;">得分: 0</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer-note">
+        📌 对标广东省职业院校技能大赛 "智能网联汽车技术" 赛项 · 线控底盘CAN通讯数据读取与调测模块
+    </div>
+</div>
+
+<script>
+    // ===== 状态管理 =====
+    const state = {
+        step: 0,              // 0=初始, 1=已读数据, 2=已解析, 3=故障注入, 4=已诊断, 5=已修复
+        angle: null,
+        speed: null,
+        faultActive: false,
+        score: 0,
+        logCount: 0
+    };
+
+    const CAN_DATA = {
+        '0x18A': { raw: 'FF DA 00 00 00 00 00 00', angle: -3.8 },
+        '0x1CC': { raw: '40 00 40 00 0C 83 41 52', speed: 0 },
+        '0x16B': { raw: '00 80 00 00 01 00 04 80', gear: 'N' }
+    };
+
+    // ===== DOM 引用 =====
+    const $ = id => document.getElementById(id);
+    const angleDisplay = $('angleDisplay');
+    const speedDisplay = $('speedDisplay');
+    const angleGauge = $('angleGauge');
+    const speedGauge = $('speedGauge');
+    const canStatus = $('canStatus');
+    const statusText = $('statusText');
+    const scoreDisplay = $('scoreDisplay');
+    const logArea = $('logArea');
+    const diagSteps = document.querySelectorAll('.diag-step');
+    const canItems = document.querySelectorAll('.can-item');
+
+    // ===== 日志 =====
+    function addLog(msg, type = 'info') {
+        const time = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        const cls = type === 'ok' ? 'ok' : type === 'err' ? 'err' : 'info';
+        entry.innerHTML = `<span class="time">[${time}]</span> <span class="${cls}">${msg}</span>`;
+        logArea.appendChild(entry);
+        logArea.scrollTop = logArea.scrollHeight;
+        if (logArea.children.length > 20) logArea.removeChild(logArea.firstChild);
+    }
+
+    // ===== 更新UI =====
+    function updateDashboard() {
+        if (state.faultActive) {
+            angleGauge.textContent = '--';
+            angleGauge.className = 'value error';
+            speedGauge.textContent = '--';
+            speedGauge.className = 'value error';
+            canStatus.textContent = '🔴 CAN总线故障';
+            canStatus.style.color = '#ff5252';
+            return;
+        }
+        if (state.angle !== null) {
+            angleGauge.textContent = state.angle.toFixed(1);
+            angleGauge.className = 'value normal';
+        } else {
+            angleGauge.textContent = '--';
+            angleGauge.className = 'value error';
+        }
+        if (state.speed !== null) {
+            speedGauge.textContent = state.speed.toFixed(1);
+            speedGauge.className = 'value normal';
+        } else {
+            speedGauge.textContent = '--';
+            speedGauge.className = 'value error';
+        }
+        if (state.step >= 5 && !state.faultActive) {
+            canStatus.textContent = '🟢 CAN总线正常';
+            canStatus.style.color = '#3ddc84';
+        } else if (state.step >= 1 && !state.faultActive) {
+            canStatus.textContent = '🟡 CAN总线已连接';
+            canStatus.style.color = '#f9a825';
+        } else {
+            canStatus.textContent = '🔴 未连接';
+            canStatus.style.color = '#ff5252';
+        }
+    }
+
+    function updateDiagSteps() {
+        diagSteps.forEach((el, idx) => {
+            const stepNum = idx + 1;
+            if (state.step >= stepNum) {
+                el.classList.add('done');
+            } else {
+                el.classList.remove('done');
+            }
+        });
+    }
+
+    function updateCanItems() {
+        canItems.forEach(el => {
+            const id = el.dataset.id;
+            if (state.step >= 1) {
+                el.classList.add('active');
+                const statusEl = el.querySelector('.status');
+                if (state.faultActive && id === '0x18A') {
+                    statusEl.textContent = '⚠️ 异常';
+                    statusEl.className = 'status error';
+                } else if (state.faultActive && id === '0x1CC') {
+                    statusEl.textContent = '⚠️ 异常';
+                    statusEl.className = 'status error';
+                } else if (state.step >= 5 && !state.faultActive) {
+                    statusEl.textContent = '✅ 已解析';
+                    statusEl.className = 'status parsed';
+                } else {
+                    statusEl.textContent = '● 已读取';
+                    statusEl.className = 'status normal';
+                }
+            }
+        });
+    }
+
+    function updateScore() {
+        scoreDisplay.textContent = `得分: ${state.score}`;
+    }
+
+    function updateAll() {
+        updateDashboard();
+        updateDiagSteps();
+        updateCanItems();
+        updateScore();
+    }
+
+    // ===== 核心操作 =====
+    function readCAN() {
+        if (state.step === 0) {
+            addLog('📡 正在连接CAN总线...', 'info');
+            setTimeout(() => {
+                addLog('✅ CAN模块已启用 (sudo sh ./startcan.sh)', 'ok');
+                addLog('📊 读取到3条CAN报文', 'info');
+                state.step = 1;
+                state.score += 10;
+                statusText.textContent = '✅ CAN数据读取成功，请点击 "解析报文"';
+                updateAll();
+            }, 600);
+        } else {
+            addLog('ℹ️ 已读取CAN数据，请进行报文解析', 'info');
+        }
+    }
+
+    function parseData() {
+        if (state.step < 1) {
+            addLog('⚠️ 请先读取CAN数据！', 'err');
+            return;
+        }
+        if (state.step >= 2 && !state.faultActive) {
+            addLog('ℹ️ 报文已解析', 'info');
+            return;
+        }
+        if (state.faultActive) {
+            addLog('⚠️ 检测到CAN总线故障，请先诊断排除故障！', 'err');
+            return;
+        }
+
+        addLog('🔍 解析报文 ID:0x18A (方向盘转角)...', 'info');
+        setTimeout(() => {
+            const angle = CAN_DATA['0x18A'].angle;
+            state.angle = angle;
+            angleDisplay.textContent = angle.toFixed(1) + '°';
+            addLog(`📐 转角解析: FF DA → ${angle}° (左转为正)`, 'ok');
+            
+            addLog('🔍 解析报文 ID:0x1CC (车速)...', 'info');
+            setTimeout(() => {
+                const speed = CAN_DATA['0x1CC'].speed;
+                state.speed = speed;
+                speedDisplay.textContent = speed.toFixed(1) + ' km/h';
+                addLog(`📐 车速解析: 00 00 → ${speed} km/h`, 'ok');
+                
+                state.step = 2;
+                state.score += 25;
+                statusText.textContent = '✅ 报文解析完成！点击 "注入故障" 进行故障诊断训练';
+                updateAll();
+            }, 500);
+        }, 500);
+    }
+
+    function injectFault() {
+        if (state.step < 2) {
+            addLog('⚠️ 请先完成报文解析！', 'err');
+            return;
+        }
+        if (state.faultActive) {
+            addLog('⚠️ 故障已注入，请进行诊断排除', 'info');
+            return;
+        }
+        if (state.step >= 5) {
+            addLog('✅ 故障已排除，无需重复注入', 'info');
+            return;
+        }
+
+        state.faultActive = true;
+        state.step = 3;
+        state.angle = null;
+        state.speed = null;
+        angleDisplay.textContent = '--';
+        speedDisplay.textContent = '--';
+        addLog('⚠️ 故障注入: CAN_H与CAN_L短接！', 'err');
+        addLog('📋 故障现象: 仪表盘无车速/转角显示，车辆不自检', 'err');
+        statusText.textContent = '🔴 故障诊断中: 请按诊断流程逐步排查';
+        updateAll();
+    }
+
+    function diagnoseFault() {
+        if (!state.faultActive) {
+            addLog('ℹ️ 当前无故障', 'info');
+            return;
+        }
+        if (state.step < 3) {
+            addLog('⚠️ 请先注入故障', 'err');
+            return;
+        }
+        if (state.step >= 4) {
+            addLog('ℹ️ 故障诊断已完成，请排除故障', 'info');
+            return;
+        }
+
+        addLog('🔧 步骤1: 确认故障现象 ✓', 'ok');
+        setTimeout(() => {
+            addLog('🔧 步骤2: 读取CAN报文 — 数据异常 ✓', 'ok');
+            setTimeout(() => {
+                addLog('🔧 步骤3: 解析报文 — 转角/车速无数据 ✓', 'ok');
+                setTimeout(() => {
+                    addLog('📊 步骤4: 示波器测量 CAN_H/CAN_L...', 'info');
+                    setTimeout(() => {
+                        addLog('📊 测量结果: CAN_H与CAN_L电平相同，无差分信号', 'info');
+                        setTimeout(() => {
+                            addLog('🎯 步骤5: 故障定位 → 底盘CAN线(编码1) CAN_H与CAN_L短接', 'ok');
+                            state.step = 4;
+                            state.score += 20;
+                            statusText.textContent = '🔧 故障已定位！请点击 "排除故障" 修复';
+                            updateAll();
+                        }, 500);
+                    }, 600);
+                }, 500);
+            }, 500);
+        }, 500);
+    }
+
+    function repairFault() {
+        if (state.step < 4) {
+            addLog('⚠️ 请先完成故障诊断！', 'err');
+            return;
+        }
+        if (!state.faultActive) {
+            addLog('ℹ️ 无故障需要排除', 'info');
+            return;
+        }
+        if (state.step >= 5) {
+            addLog('✅ 故障已排除', 'info');
+            return;
+        }
+
+        addLog('🔧 步骤6: 检查底盘CAN线束，找到短接点...', 'info');
+        setTimeout(() => {
+            addLog('🔧 修复短接点，重新连接CAN_H/CAN_L...', 'info');
+            setTimeout(() => {
+                addLog('🔄 重新启用CAN模块...', 'info');
+                setTimeout(() => {
+                    state.faultActive = false;
+                    state.step = 5;
+                    state.angle = CAN_DATA['0x18A'].angle;
+                    state.speed = CAN_DATA['0x1CC'].speed;
+                    angleDisplay.textContent = state.angle.toFixed(1) + '°';
+                    speedDisplay.textContent = state.speed.toFixed(1) + ' km/h';
+                    state.score += 20;
+                    addLog('✅ 故障排除成功！CAN总线恢复正常！', 'ok');
+                    addLog('📊 验证: 方向盘转角 ' + state.angle.toFixed(1) + '° 车速 ' + state.speed.toFixed(1) + ' km/h', 'ok');
+                    statusText.textContent = '🎉 故障诊断与排除完成！总分: ' + state.score;
+                    updateAll();
+                }, 600);
+            }, 600);
+        }, 600);
+    }
+
+    function resetAll() {
+        state.step = 0;
+        state.angle = null;
+        state.speed = null;
+        state.faultActive = false;
+        state.score = 0;
+        angleDisplay.textContent = '--';
+        speedDisplay.textContent = '--';
+        statusText.textContent = '💡 点击 "读取CAN数据" 开始仿真';
+        logArea.innerHTML = '<div class="log-entry"><span class="time">[系统]</span> <span class="info">已重置，准备开始...</span></div>';
+        canItems.forEach(el => {
+            el.classList.remove('active');
+            const s = el.querySelector('.status');
+            s.textContent = '● 待读取';
+            s.className = 'status normal';
+        });
+        diagSteps.forEach(el => el.classList.remove('done'));
+        updateAll();
+        addLog('🔄 已重置仿真环境', 'info');
+    }
+
+    // ===== 自动演示序列 =====
+    function autoDemo() {
+        addLog('🎬 启动自动演示模式...', 'info');
+        setTimeout(() => readCAN(), 800);
+        setTimeout(() => parseData(), 2500);
+        setTimeout(() => injectFault(), 4500);
+        setTimeout(() => diagnoseFault(), 6500);
+        setTimeout(() => repairFault(), 11000);
+    }
+
+    // ===== 绑定事件 =====
+    $('btnRead').addEventListener('click', readCAN);
+    $('btnParse').addEventListener('click', parseData);
+    $('btnFault').addEventListener('click', injectFault);
+    $('btnReset').addEventListener('click', resetAll);
+
+    // 诊断步骤点击（快捷操作）
+    diagSteps.forEach((el, idx) => {
+        el.addEventListener('click', () => {
+            const step = idx + 1;
+            if (step === 1 && state.step >= 1) diagnoseFault();
+            else if (step === 5 && state.step >= 4) repairFault();
+            else if (step === 6 && state.step >= 5) addLog('✅ 故障已排除，车辆恢复正常', 'ok');
+            else addLog('ℹ️ 请按顺序完成诊断步骤', 'info');
+        });
+    });
+
+    // 点击CAN报文高亮
+    canItems.forEach(el => {
+        el.addEventListener('click', () => {
+            if (state.step >= 1) {
+                canItems.forEach(e => e.classList.remove('active'));
+                el.classList.add('active');
+                addLog(`📌 选中报文 ${el.dataset.id}: ${el.dataset.raw}`, 'info');
+            }
+        });
+    });
+
+    // 键盘快捷键
+    document.addEventListener('keydown', (e) => {
+        if (e.key === '1') readCAN();
+        else if (e.key === '2') parseData();
+        else if (e.key === '3') injectFault();
+        else if (e.key === '4') diagnoseFault();
+        else if (e.key === '5') repairFault();
+        else if (e.key === 'r' || e.key === 'R') resetAll();
+        else if (e.key === 'd' || e.key === 'D') autoDemo();
+    });
+
+    // ===== 初始化 =====
+    updateAll();
+    addLog('💡 快捷键: [1]读取 [2]解析 [3]故障 [4]诊断 [5]修复 [R]重置 [D]演示', 'info');
+</script>
+</body>
+</html>
